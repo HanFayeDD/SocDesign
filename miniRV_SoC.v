@@ -3,8 +3,17 @@
 `include "defines.vh"
 
 //记得注释掉这里
-// `include "myCPU.v"
-//
+`include "ALU.v"
+`include "Controller.v"
+`include "NPC.v"
+`include "PC.v"
+`include "RF.v"
+`include "SEXT.v"
+`include "Switch.v"
+`include "myCPU.v"
+`include "Bridge.v"
+`include "Dig.v"
+`include "Led.v"
 
 module miniRV_SoC (
     input  wire         fpga_rst,   // High active
@@ -61,9 +70,23 @@ module miniRV_SoC (
     
     // Interface between bridge and peripherals
     // TODO: 在此定义总线桥与外设I/O接口电路模块的连接信号
-    //
-    
-
+    // Interface between bridge and switch
+    wire         clk_bg2sw;
+    wire         rst_bg2sw;
+    wire [31:0]  addr_bg2sw;
+    wire [31:0]  rdata_sw2bg;
+    // Interface between bridge and dig
+    wire         clk_bg2dig;
+    wire         rst_bg2dig;
+    wire[31:0]   addr_bg2dig;
+    wire         we_bg2dig;
+    wire[31:0]   wdata_bg2dig;
+    // Interface between bridge and led
+    wire         clk_bg2led;
+    wire         rst_bg2led;
+    wire[31:0]   addr_bg2led;
+    wire         we_bg2led;
+    wire[31:0]   wdata_bg2led;
     
 `ifdef RUN_TRACE
     // Trace调试时，直接使用外部输入时钟
@@ -103,10 +126,6 @@ module miniRV_SoC (
 `endif
     );
     
-    IROM Mem_IROM (
-        .a          (inst_addr),
-        .spo        (inst)
-    );
     
     Bridge Bridge (       
         // Interface to CPU
@@ -126,24 +145,24 @@ module miniRV_SoC (
         .wdata_to_dram      (wdata_bridge2dram),
         
         // Interface to 7-seg digital LEDs
-        .rst_to_dig         (/* TODO */),
-        .clk_to_dig         (/* TODO */),
-        .addr_to_dig        (/* TODO */),
-        .we_to_dig          (/* TODO */),
-        .wdata_to_dig       (/* TODO */),
+        .rst_to_dig         (rst_bg2dig),
+        .clk_to_dig         (clk_bg2dig),
+        .addr_to_dig        (addr_bg2dig),
+        .we_to_dig          (we_bg2dig),
+        .wdata_to_dig       (wdata_bg2dig),
 
         // Interface to LEDs
-        .rst_to_led         (/* TODO */),
-        .clk_to_led         (/* TODO */),
-        .addr_to_led        (/* TODO */),
-        .we_to_led          (/* TODO */),
-        .wdata_to_led       (/* TODO */),
+        .rst_to_led         (rst_bg2led),
+        .clk_to_led         (clk_bg2led),
+        .addr_to_led        (addr_bg2led),
+        .we_to_led          (we_bg2led),
+        .wdata_to_led       (wdata_bg2led),
 
         // Interface to switches
-        .rst_to_sw          (/* TODO */),
-        .clk_to_sw          (/* TODO */),
-        .addr_to_sw         (/* TODO */),
-        .rdata_from_sw      (/* TODO */),
+        .rst_to_sw          (rst_bg2sw),
+        .clk_to_sw          (clk_bg2sw),
+        .addr_to_sw         (addr_bg2sw),
+        .rdata_from_sw      (rdata_sw2bg),
 
         // Interface to buttons
         .rst_to_btn         (/* TODO */),
@@ -152,16 +171,47 @@ module miniRV_SoC (
         .rdata_from_btn     (/* TODO */)
     );
 
-    DRAM Mem_DRAM (
-        .clk        (clk_bridge2dram),
-        .a          (addr_bridge2dram[15:2]),
-        .spo        (rdata_dram2bridge),
-        .we         (we_bridge2dram),
-        .d          (wdata_bridge2dram)
-    );
+    // DRAM Mem_DRAM (
+    //     .clk        (clk_bridge2dram),
+    //     .a          (addr_bridge2dram[15:2]),
+    //     .spo        (rdata_dram2bridge),
+    //     .we         (we_bridge2dram),
+    //     .d          (wdata_bridge2dram)
+    // );
     
-    // TODO: 在此实例化你的外设I/O接口电路模块
-    //
+    // IROM Mem_IROM (
+    //     .a          (inst_addr),
+    //     .spo        (inst)
+    // );
 
+    // TODO: 在此实例化你的外设I/O接口电路模块
+    // 拨码开关
+    Switch u_switch(
+        .sw_from_soc(sw),
+        .rst_from_bg(rst_bg2sw),
+        .clk_from_bg(clk_bg2sw),
+        .addr_from_bg(addr_bg2sw),
+        .rdata_to_bg(rdata_sw2bg)
+    );
+
+    Dig u_dig(
+        .clk_from_bg(clk_bg2dig),
+        .rst_from_bg(rst_bg2dig),
+        .addr_from_bg(addr_bg2dig),
+        .we_from_bg(we_bg2dig),
+        .wdata_from_bg(wdata_bg2dig),
+        .dig_en_2_soc(dig_en),//Dig的输出
+        .dig_DN_2_soc({DN_DP, DN_A, DN_B, DN_C, //Dig的输出
+                        DN_D, DN_E, DN_F, DN_G})
+    );
+
+    Led u_led(
+        .clk_from_bg(clk_bg2led),
+        .rst_from_bg(rst_bg2led),
+        .addr_from_bg(addr_bg2led),
+        .we_from_bg(we_bg2led),
+        .wdata_from_bg(wdata_bg2led),
+        .led_2soc(led)
+    );
 
 endmodule
