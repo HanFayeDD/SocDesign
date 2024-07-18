@@ -14,6 +14,7 @@
 `include "Bridge.v"
 `include "Dig.v"
 `include "Led.v"
+`include "counter.v"
 
 module miniRV_SoC (
     input  wire         fpga_rst,   // High active
@@ -171,6 +172,8 @@ module miniRV_SoC (
         .rdata_from_btn     (/* TODO */)
     );
 
+
+    //!!!!!!!记得上板子的时候把这里取消注释
     // DRAM Mem_DRAM (
     //     .clk        (clk_bridge2dram),
     //     .a          (addr_bridge2dram[15:2]),
