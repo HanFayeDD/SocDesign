@@ -76,24 +76,30 @@ OP_NONE:
     jal TEST
 	
 OP_ADD:
-	add x13, x11, x10      # x13存折着直接相加的数据
-	andi x14, x13, 0x0000000f # x14存储小数部分
-	srli x13, x13, 4
-	andi x15, x13, 0x0000000f # x15存储整数部分
+	andi x12, x11, 0x0000000f  ##A小数部分
+	srli x11, x11, 4
+	andi x13, x11, 0x0000000f  ##A整数部分
+	andi x14, x10, 0x0000000f  ##B小数部分
+	srli x10, x10, 4
+	andi x15, x10, 0x0000000f  ##B整数部分
+	add  x17, x12, x14
 	addi x16, x0, 10
-	bge  x14, x16, OP_ADD_JINWEI
+	add  x18, x13, x15
+	bge x17, x16, OP_ADD_JINWEI
 OP_ADD_BACK:
 	addi s0, x0, 0
-	add s0, s0, x15
+	add s0, s0, x18
 	slli s0, s0, 4
-	add s0, s0, x14
-	add x11, x0, s0
-	jal SHOW	
+	add s0, s0, x17
+    add x11, x0, s0
+    jal SHOW
+	
 	
 OP_ADD_JINWEI:
-	addi x15, x15, 1
-	sub x14, x14, x16
+	addi x18, x18, 1
+	sub x17, x17, x16
 	jal OP_ADD_BACK
+	
 
 OP_SUB:
 	blt x11, x10, OP_SUB_ABBA   # x11是big的数
@@ -187,6 +193,7 @@ OP_RAN:
 	add  x13, x13, x11
 	slli x13, x13, 8
 	add  x13, x13, x10  ## 生成随机数种子存在x13中
+	sw   x13, 0x00(s1)           # Write 7-seg LEDs
 RAN_BACK_LOOP:
 	andi x14, x13, 0x00000001          ## a0 a1异或
 	andi x15, x13, 0x00000002          
