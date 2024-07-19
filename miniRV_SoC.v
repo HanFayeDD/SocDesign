@@ -15,6 +15,7 @@
 `include "Dig.v"
 `include "Led.v"
 `include "counter.v"
+`include "Button.v"
 
 module miniRV_SoC (
     input  wire         fpga_rst,   // High active
@@ -88,7 +89,12 @@ module miniRV_SoC (
     wire[31:0]   addr_bg2led;
     wire         we_bg2led;
     wire[31:0]   wdata_bg2led;
-    
+    // Interface between bridge and button
+    wire rst_bg2but;
+    wire clk_bg2but;
+    wire[31:0] addr_bg2but;
+    wire[31:0] rdata_but2bg;
+
 `ifdef RUN_TRACE
     // Trace调试时，直接使用外部输入时钟
     assign cpu_clk = fpga_clk;
@@ -166,10 +172,10 @@ module miniRV_SoC (
         .rdata_from_sw      (rdata_sw2bg),
 
         // Interface to buttons
-        .rst_to_btn         (/* TODO */),
-        .clk_to_btn         (/* TODO */),
-        .addr_to_btn        (/* TODO */),
-        .rdata_from_btn     (/* TODO */)
+        .rst_to_btn         (rst_bg2but),
+        .clk_to_btn         (clk_bg2but),
+        .addr_to_btn        (addr_bg2but),
+        .rdata_from_btn     (rdata_but2bg)
     );
 
 
@@ -216,5 +222,15 @@ module miniRV_SoC (
         .wdata_from_bg(wdata_bg2led),
         .led_2soc(led)
     );
+
+    Button u_button(
+        .button_from_soc(button),
+        .clk_from_bg(clk_bg2but),
+        .rst_from_bg(rst_bg2but),
+        .addr_from_bg(addr_bg2but),
+        .rdata_2_bg(rdata_but2bg)
+    );
+
+
 
 endmodule
