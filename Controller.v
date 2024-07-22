@@ -61,8 +61,9 @@ module Controller(
         else if(b_type) sext_op = `EXT_B;
         else if(u_type) sext_op = `EXT_U;
         else if(j_type) sext_op = `EXT_J;
-        else if(i_type_jalr) sext_op = `EXT_I;//???拓展方式跟i的其他是否一样
+        else if(i_type_jalr) sext_op = `EXT_I;//???拓展方式跟i的其他是否一�?
         else if(i_type_lw)   sext_op = `EXT_I;//??同上
+        else sext_op = `EXT_NONE;
     end
 
     always @(*) begin
@@ -74,6 +75,7 @@ module Controller(
         else if(j_type) npc_op = `NPC_JMP;
         else if(i_type_jalr) npc_op = `NPC_JMPR;
         else if(i_type_lw) npc_op = `NPC_PC4;
+        else npc_op = `NPC_PC4;
     end
 
     always @(*) begin
@@ -85,6 +87,7 @@ module Controller(
         else if(j_type) ram_we = 1'b0;
         else if(i_type_jalr) ram_we = 1'b0;
         else if(i_type_lw)   ram_we = 1'b0;
+        else  ram_we = 1'b0;
     end
 
     always @(*) begin
@@ -92,10 +95,11 @@ module Controller(
         else if(i_type)  alu_bsel = `ALU_EXT;
         else if(s_type)  alu_bsel = `ALU_EXT;
         else if(b_type)  alu_bsel = `ALU_RS2;
-        else if(u_type)  alu_bsel = `ALU_RS2;//随便一个
-        else if(j_type)  alu_bsel = `ALU_RS2;//随便一个
+        else if(u_type)  alu_bsel = `ALU_RS2;//随便�?�?
+        else if(j_type)  alu_bsel = `ALU_RS2;//随便�?�?
         else if(i_type_jalr) alu_bsel = `ALU_EXT;
         else if(i_type_lw) alu_bsel = `ALU_EXT;
+        else  alu_bsel = `ALU_RS2;
     end
     
     always @(*) begin
@@ -116,6 +120,7 @@ module Controller(
         else if(inst_jal)              alu_op = `ALU_ADD;//不需要alu操作
         else if(inst_jalr)             alu_op = `ALU_ADD;
         else if(inst_lw)               alu_op = `ALU_ADD;
+        else  alu_op = `ALU_ADD;
     end
 
     always @(*) begin
@@ -141,6 +146,7 @@ module Controller(
         else if(j_type)  rf_wsel = `WB_PC4;
         else if(i_type_jalr) rf_wsel = `WB_PC4;
         else if(i_type_lw) rf_wsel = `WB_DRAM;
+        else  rf_wsel = `WB_ALU;
     end
 
 endmodule

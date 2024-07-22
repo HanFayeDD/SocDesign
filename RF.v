@@ -9,13 +9,13 @@ module RF(
     input wire clk,
     input wire rst,
     input wire we,
-    //以下是wD相关信号，多路选择器
+    //以下是wD相关信号，多路�?�择�?
     input wire[31:0] pc4,
     input wire[31:0] sext,
     input wire[31:0] alu_c,
     input wire[31:0] dram_rdo,
     input wire[2:0] rf_wsel,
-    //以下是输出信号
+    //以下是输出信�?
     output reg[31:0] rD1,
     output reg[31:0] rD2,
     output reg[31:0] debug_wb_value_rf
@@ -36,14 +36,14 @@ module RF(
         debug_wb_value_rf = selected;
     end
 
-    //异步读
+    //异步�?
     always @(*) begin
         rD1 = register[rR1];
         rD2 = register[rR2];
     end
 
 
-    //同步写
+    //同步�?
     reg[31:0] register[31:0];
     always @(posedge clk or posedge rst)begin
         if(rst)begin
@@ -51,7 +51,7 @@ module RF(
                 register[i] <= 32'b0;
             end
         end
-        if(we) begin
+        else if(we) begin
             if(wR!=5'b00000) begin 
                 register[wR] <= selected;
             end

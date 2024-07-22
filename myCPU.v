@@ -37,6 +37,11 @@ module myCPU (
 );
 
     // TODO: 完成你自己的单周期CPU设计
+    wire[31:0] PC_pc;
+    wire[2:0] Con_npc_op;
+    wire[31:0] SEXT_ext;
+    wire ALU_f;
+    wire[31:0] ALU_C;
     //DRAM部分
     assign Bus_addr = ALU_C;
     assign Bus_we = Con_ram_we;
@@ -54,7 +59,6 @@ module myCPU (
         .npc(NPC_npc)
     );
     //PC
-    wire[31:0] PC_pc;
     PC u_PC(
         .clk_pc(cpu_clk),
         .rst_pc(cpu_rst),
@@ -67,7 +71,6 @@ module myCPU (
 
     //Controller
     wire[2:0] Con_sext_op;
-    wire[2:0] Con_npc_op;
     wire Con_ram_we;
     wire[3:0] Con_alu_op;
     wire[2:0] Con_alu_bsel;
@@ -87,7 +90,6 @@ module myCPU (
     );
 
     //sext
-    wire[31:0] SEXT_ext;
     SEXT u_SEXT(
         .op(Con_sext_op),
         .din(inst[31:7]),
@@ -116,8 +118,6 @@ module myCPU (
     );
 
     //ALU
-    wire ALU_f;
-    wire[31:0] ALU_C;
     ALU u_ALU(
         .A(RF_rD1),
         .alu_op(Con_alu_op),
