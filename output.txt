@@ -1,5 +1,0 @@
-==================== SUMMARY ==================== 
-Passed Tests:
-and, addi, add, srl, simple, sw, sra, lui, sll, xori, beq, lw, srai, ori, bne, bge, jal, or, jalr, srli, andi, slli, sub, blt, xor
-Failed Tests:
-lhu, sb, lh, slt, slti, start, auipc, sltiu, lb, bltu, sltu, sh, lbu, bgeu
