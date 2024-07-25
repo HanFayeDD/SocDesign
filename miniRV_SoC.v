@@ -2,7 +2,7 @@
 
 `include "defines.vh"
 
-//记得注释掉这�??
+//记得注释掉这�??
 // `include "ALU.v"
 // `include "Controller.v"
 // `include "NPC.v"
@@ -36,11 +36,11 @@ module miniRV_SoC (
 
 `ifdef RUN_TRACE
     ,// Debug Interface
-    output wire         debug_wb_have_inst, // 当前时钟周期是否有指令写�?? (对单周期CPU，可在复位后恒置1)
+    output wire         debug_wb_have_inst, // 当前时钟周期是否有指令写�?? (对单周期CPU，可在复位后恒置1)
     output wire [31:0]  debug_wb_pc,        // 当前写回的指令的PC (若wb_have_inst=0，此项可为任意�??)
     output              debug_wb_ena,       // 指令写回时，寄存器堆的写使能 (若wb_have_inst=0，此项可为任意�??)
-    output wire [ 4:0]  debug_wb_reg,       // 指令写回时，写入的寄存器�?? (若wb_ena或wb_have_inst=0，此项可为任意�??)
-    output wire [31:0]  debug_wb_value      // 指令写回时，写入寄存器的�?? (若wb_ena或wb_have_inst=0，此项可为任意�??)
+    output wire [ 4:0]  debug_wb_reg,       // 指令写回时，写入的寄存器�?? (若wb_ena或wb_have_inst=0，此项可为任意�??)
+    output wire [31:0]  debug_wb_value      // 指令写回时，写入寄存器的�?? (若wb_ena或wb_have_inst=0，此项可为任意�??)
 `endif
 );
 
@@ -71,7 +71,7 @@ module miniRV_SoC (
     wire [31:0]  wdata_bridge2dram;
     
     // Interface between bridge and peripherals
-    // TODO: 在此定义总线桥与外设I/O接口电路模块的连接信�??
+    // TODO: 在此定义总线桥与外设I/O接口电路模块的连接信�??
     // Interface between bridge and switch
     wire         clk_bg2sw;
     wire         rst_bg2sw;
@@ -195,7 +195,7 @@ module miniRV_SoC (
      );
 
     // TODO: 在此实例化你的外设I/O接口电路模块
-    // 拨码�??�??
+    // 拨码�??�??
     Switch u_switch(
         .sw_from_soc(sw),
         .rst_from_bg(rst_bg2sw),
@@ -210,8 +210,8 @@ module miniRV_SoC (
         .addr_from_bg(addr_bg2dig),
         .we_from_bg(we_bg2dig),
         .wdata_from_bg(wdata_bg2dig),
-        .dig_en_2_soc(dig_en),//Dig的输�??
-        .dig_DN_2_soc({DN_DP, DN_A, DN_B, DN_C, //Dig的输�??
+        .dig_en_2_soc(dig_en),//Dig的输�??
+        .dig_DN_2_soc({DN_DP, DN_A, DN_B, DN_C, //Dig的输�??
                         DN_D, DN_E, DN_F, DN_G})
     );
 

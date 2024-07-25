@@ -48,8 +48,17 @@
 `define COM_NO  1'b0
 
 
-// 外设I/O接口电路的端口地�?
+// 外设I/O接口电路的端口地�?
 `define PERI_ADDR_DIG   32'hFFFF_F000
 `define PERI_ADDR_LED   32'hFFFF_F060
 `define PERI_ADDR_SW    32'hFFFF_F070
 `define PERI_ADDR_BTN   32'hFFFF_F078
+
+
+//流水线暂停的情况
+`define PIP_0STOP      4'b0000
+`define PIP_1STOP      4'b1001
+`define PIP_2STOP      4'b1010
+`define PIP_3STOP      4'b1011
+
+

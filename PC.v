@@ -6,8 +6,31 @@ module PC(
     input wire clk_pc,
     input wire rst_pc,
     input wire[31:0] din,
-    output reg[31:0] pc
+    output reg[31:0] pc,
+    output reg[31:0] pc4
 );
+    // reg first;
+    // always @(posedge clk_pc or posedge rst_pc) begin
+    //     if (rst_pc)begin
+    //         pc <= 32'b0000_0000;
+    //         first <= 1'b0;
+    //     end
+    //     else begin
+    //         if(first==1'b0)begin
+    //             pc <= 32'b0000_0000;
+    //             first <= 1'b1;
+    //         end
+    //         else begin
+    //             pc <= din;
+    //         end
+    //     end
+    // end
+
+    // always@(*)begin
+    //     pc4 = pc + 4;
+    // end
+
+
     reg first;
     always @(posedge clk_pc or posedge rst_pc) begin
         if (rst_pc)begin
@@ -20,8 +43,12 @@ module PC(
                 first <= 1'b1;
             end
             else begin
-                pc <= din;
+                pc <= pc+4;
             end
         end
+    end
+
+    always@(*)begin
+        pc4 = pc + 4;
     end
 endmodule

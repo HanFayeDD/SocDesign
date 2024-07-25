@@ -1,3 +1,4 @@
+`timescale 1ns / 1ps
 module counter #(
     parameter  END=15,
     parameter WIDTH=4

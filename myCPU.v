@@ -1,12 +1,18 @@
 `timescale 1ns / 1ps
 
 `include "defines.vh"
-// `include "ALU.v"
-// `include "Controller.v"
-// `include "NPC.v"
-// `include "PC.v"
-// `include "RF.v"
-// `include "SEXT.v"
+`include "ALU.v"
+`include "Controller.v"
+`include "NPC.v"
+`include "PC.v"
+`include "RF.v"
+`include "SEXT.v"
+`include "IF_ID.v"
+`include "ID_EX.v"
+`include "EX_MEM.v"
+`include "hazard_data.v"
+`include "counter.v"
+// `include "MEM_WB.v"
 
 module myCPU (
     input  wire         cpu_rst,
@@ -35,6 +41,24 @@ module myCPU (
     output wire [31:0]  debug_wb_value
 `endif
 );
+    //TODO数据冒险控制
+    wire[3:0] pipline_stop_info;
+    wire pipline_stop;
+    hazard_data u_hazard_data(
+        .clk(cpu_clk),
+        .rst(cpu_rst),
+        .inst_rs1(inst[19:15]),
+        .inst_rs2(inst[24:20]),
+        .inst(inst),
+        .ifid_rd_o(if_id_inst_o[11:7]),//差一个时钟周期
+        .id_rf_we(Con_rf_we),
+        .idex_rd_o(idex_wR_o),//2个
+        .ex_rf_we(idex_rf_we_o),
+        .exmem_rd_o(exmem_wR_o),//3个
+        .mem_rf_we(exmem_rf_we_o),
+        .pipline_stop(pipline_stop),
+        .pipline_stop_info(pipline_stop_info)
+    );
 
     // TODO: 完成你自己的单周期CPU设计
     wire[31:0] PC_pc;
@@ -43,30 +67,50 @@ module myCPU (
     wire ALU_f;
     wire[31:0] ALU_C;
     //DRAM部分
-    assign Bus_addr = ALU_C;
-    assign Bus_we = Con_ram_we;
-    assign Bus_wdata = RF_rD2;
+    assign Bus_addr = exmem_alu_c_o;
+    assign Bus_we = exmem_ram_we_o;
+    assign Bus_wdata = exmem_rD2_o;
     //NPC部分
-    wire[31:0] NPC_pc4;
+    // wire[31:0] NPC_pc4;
+    //**尝试把NPC放在ID_EX之后
     wire[31:0] NPC_npc;
     NPC  u_NPC(
-        .pc(PC_pc),
-        .op(Con_npc_op),
+        .pc(idex_pc_o),
+        .op(idex_npc_op_o),
         .br(ALU_f),
-        .offset(SEXT_ext),
+        .offset(idex_imm_o),
         .new_npc_alu(ALU_C),
-        .pc4(NPC_pc4),
+        .pc4(),
         .npc(NPC_npc)
     );
     //PC
+    wire[31:0] PC_pc4;
     PC u_PC(
         .clk_pc(cpu_clk),
         .rst_pc(cpu_rst),
         .din(NPC_npc),
-        .pc(PC_pc)
+        .pc(PC_pc),
+        .pc4(PC_pc4)
     );
     //连接IROM
     assign inst_addr = PC_pc[15:2];
+
+    //**IF/ID
+    wire[31:0] if_id_inst_o;
+    wire[31:0] if_id_pc_o;
+    wire[31:0] if_id_pc4_o;
+    IF_ID u_IF_ID(
+        .clk(cpu_clk),
+        .rst(cpu_rst),
+        .inst_i(inst),//from irom throught ibus
+        .pc_i(PC_pc),
+        .pc4_i(PC_pc4),
+        .pipline_stop(pipline_stop),
+        .pipline_stop_info(pipline_stop_info),
+        .inst_o(if_id_inst_o),
+        .pc_o(if_id_pc_o),
+        .pc4_o(if_id_pc4_o)
+    );
 
 
     //Controller
@@ -77,10 +121,10 @@ module myCPU (
     wire Con_rf_we;
     wire[2:0] Con_rf_wsel;
     Controller u_Controller(
-        .opcode(inst[6:0]),
-        .funct3(inst[14:12]),
-        .funct7(inst[31:25]),
-        .sext_op(Con_sext_op),
+        .opcode(if_id_inst_o[6:0]),
+        .funct3(if_id_inst_o[14:12]),
+        .funct7(if_id_inst_o[31:25]),
+        .sext_op(Con_sext_op),//不用传到下一阶段
         .npc_op(Con_npc_op),
         .ram_we(Con_ram_we),
         .alu_op(Con_alu_op),
@@ -92,7 +136,7 @@ module myCPU (
     //sext
     SEXT u_SEXT(
         .op(Con_sext_op),
-        .din(inst[31:7]),
+        .din(if_id_inst_o[31:7]),
         .ext(SEXT_ext)
     );
 
@@ -103,30 +147,150 @@ module myCPU (
     RF u_RF(
         .clk(cpu_clk),
         .rst(cpu_rst),
-        .rR1(inst[19:15]),
-        .rR2(inst[24:20]),
-        .wR(inst[11:7]),
-        .we(Con_rf_we),
-        .pc4(NPC_pc4),
-        .sext(SEXT_ext),
-        .alu_c(ALU_C),
+        .rR1(if_id_inst_o[19:15]),
+        .rR2(if_id_inst_o[24:20]),
+        .wR(exmem_wR_o),
+        .we(exmem_rf_we_o),
+        .pc4(exmem_pc4_o),
+        .sext(exmem_imm_o),
+        .alu_c(exmem_alu_c_o),
         .dram_rdo(Bus_rdata[31:0]),
-        .rf_wsel(Con_rf_wsel),
+        .rf_wsel(exmen_rf_wsel_o),
         .rD1(RF_rD1),
         .rD2(RF_rD2),
         .debug_wb_value_rf(debug_wb_value_rf)
     );
 
+    //**ID_EX
+    wire[2:0] idex_npc_op_o;
+    wire idex_ram_we_o;
+    wire[3:0] idex_alu_op_o;
+    wire[2:0] idex_alu_bsel_o;
+    wire idex_rf_we_o;
+    wire[2:0] idex_rf_wsel_o;
+    wire[31:0] idex_pc4_o;
+    wire[31:0] idex_imm_o;
+    wire[31:0] idex_rD1_o;
+    wire[31:0] idex_rD2_o;
+    wire[4:0]  idex_wR_o;
+    wire[31:0] idex_pc_o;
+    wire[31:0] inst_idex2exmem;
+    ID_EX u_ID_EX(
+        .clk(cpu_clk),
+        .rst(cpu_rst),
+        .inst_ifid2idex(if_id_inst_o),
+        .inst_idex2exmem(inst_idex2exmem),
+        .pipline_stop(pipline_stop),
+        .pipline_stop_info(pipline_stop_info),
+        //控制器信号输入
+        .npc_op_i(Con_npc_op),
+        .ram_we_i(Con_ram_we),
+        .alu_op_i(Con_alu_op),
+        .alu_bsel_i(Con_alu_bsel),
+        .rf_we_i(Con_rf_we),
+        .rf_wsel_i(Con_rf_wsel),
+        //控制器信号输出
+        .npc_op_o(idex_npc_op_o),
+        .ram_we_o(idex_ram_we_o),
+        .alu_op_o(idex_alu_op_o),
+        .alu_bsel_o(idex_alu_bsel_o),
+        .rf_we_o(idex_rf_we_o),
+        .rf_wsel_o(idex_rf_wsel_o),
+        //PC4
+        .pc4_i(if_id_pc4_o),
+        .pc4_o(idex_pc4_o),
+        //PC
+        .pc_i(if_id_pc_o),
+        .pc_o(idex_pc_o),
+        //imm 与rf两个读出数据
+        .imm_i(SEXT_ext),
+        .rD1_i(RF_rD1),
+        .rD2_i(RF_rD2),
+        .imm_o(idex_imm_o),
+        .rD1_o(idex_rD1_o),
+        .rD2_o(idex_rD2_o),
+        //rf会存入的寄存器的编号
+        .wR_i(if_id_inst_o[11:7]),
+        .wR_o(idex_wR_o)
+    );
+
+
+
     //ALU
     ALU u_ALU(
-        .A(RF_rD1),
-        .alu_op(Con_alu_op),
-        .sel(Con_alu_bsel),
-        .rd2(RF_rD2),
-        .sext(SEXT_ext),
+        .A(idex_rD1_o),
+        .alu_op(idex_alu_op_o),
+        .sel(idex_alu_bsel_o),
+        .rd2(idex_rD2_o),
+        .sext(idex_imm_o),
         .f(ALU_f),
         .C(ALU_C)
     );
+
+    //**EX_MEM
+    wire[4:0] exmem_wR_o;
+    wire[31:0] exmem_pc4_o;
+    wire[31:0] exmem_alu_c_o;
+    wire[31:0] exmem_imm_o;
+    wire exmem_ram_we_o;
+    wire exmem_rf_we_o;
+    wire[2:0] exmen_rf_wsel_o;
+    wire[31:0] exmem_rD2_o;
+    EX_MEM u_EX_MEM(
+        .clk(cpu_clk),
+        .rst(cpu_rst),
+        .inst_idex2exmem(inst_idex2exmem),
+        //wb to rf
+        .wR_i(idex_wR_o),
+        .pc4_i(idex_pc4_o),
+        .alu_c_i(ALU_C),
+        .imm_i(idex_imm_o),
+        .wR_o(exmem_wR_o),
+        .pc4_o(exmem_pc4_o),
+        .alu_c_o(exmem_alu_c_o),
+        .imm_o(exmem_imm_o),
+        //control signal
+        .ram_we_i(idex_ram_we_o),
+        .rf_we_i(idex_rf_we_o),
+        .rf_wsel_i(idex_rf_wsel_o),
+        .ram_we_o(exmem_ram_we_o),
+        .rf_we_o(exmem_rf_we_o),
+        .rf_wsel_o(exmen_rf_wsel_o),
+        //wirte to dram
+        .rD2_i(idex_rD2_o),
+        .rD2_o(exmem_rD2_o)
+    );
+
+
+    //**MEMWB  !!!可以在这个模块这里就完成多路选择器
+    // wire memwb_rf_we_o;
+    // //连接到rf
+    // wire[2:0] memwb_rf_wsel_o;
+    // wire[4:0] memwb_wR_o;
+    // wire[31:0] memwb_pc4_o;
+    // wire[31:0] memwb_alu_c_o;
+    // wire[31:0] memwb_imm_o;
+    // wire[31:0] memwb_rdo_o;
+    // MEM_WB U_MEM_WB(
+    //     .clk(cpu_clk),
+    //     .rst(cpu_rst),
+    //     //control signal
+    //     .rf_we_i(exmem_rf_we_o),
+    //     .rf_wsel_i(exmen_rf_wsel_o),
+    //     .rf_we_o(memwb_rf_we_o),
+    //     .rf_wsel_o(memwb_rf_wsel_o),
+    //     //about rf write back
+    //     .wR_i(exmem_wR_o),
+    //     .pc4_i(exmem_pc4_o),
+    //     .alu_c_i(exmem_alu_c_o),
+    //     .imm_i(exmem_imm_o),
+    //     .dram_rdo_i(Bus_rdata[31:0]),//通过总线从dram外设等读到的数据
+    //     .wR_o(memwb_wR_o),
+    //     .pc4_o(memwb_pc4_o),
+    //     .alu_c_o(memwb_alu_c_o),
+    //     .imm_o(memwb_imm_o),
+    //     .rdo_o(memwb_rdo_o)
+    // );
 
 
     reg debug_wb_have_inst_reg;
