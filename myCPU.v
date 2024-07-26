@@ -1,18 +1,18 @@
 `timescale 1ns / 1ps
 
 `include "defines.vh"
-`include "ALU.v"
-`include "Controller.v"
-`include "NPC.v"
-`include "PC.v"
-`include "RF.v"
-`include "SEXT.v"
-`include "IF_ID.v"
-`include "ID_EX.v"
-`include "EX_MEM.v"
-`include "hazard_data.v"
-`include "counter.v"
-// `include "MEM_WB.v"
+// `include "ALU.v"
+// `include "Controller.v"
+// `include "NPC.v"
+// `include "PC.v"
+// `include "RF.v"
+// `include "SEXT.v"
+// `include "IF_ID.v"
+// `include "ID_EX.v"
+// `include "EX_MEM.v"
+// `include "hazard_data.v"
+// `include "counter.v"
+// `include "hazard_jump.v"
 
 module myCPU (
     input  wire         cpu_rst,
@@ -41,7 +41,7 @@ module myCPU (
     output wire [31:0]  debug_wb_value
 `endif
 );
-    //TODO数据冒险控制
+    //TODO数据冒险控制:采用停顿
     wire[3:0] pipline_stop_info;
     wire pipline_stop;
     hazard_data u_hazard_data(
@@ -59,6 +59,17 @@ module myCPU (
         .pipline_stop(pipline_stop),
         .pipline_stop_info(pipline_stop_info)
     );
+
+    //TODO控制冒险：采用停顿
+    wire pipline_stop_jump;
+    hazard_jump u_hazard_jump(
+        .clk(cpu_clk),
+        .rst(cpu_rst),
+        .inst(inst),
+        .pipline_stop_jump(pipline_stop_jump)
+    );
+
+
 
     // TODO: 完成你自己的单周期CPU设计
     wire[31:0] PC_pc;
@@ -89,6 +100,7 @@ module myCPU (
         .clk_pc(cpu_clk),
         .rst_pc(cpu_rst),
         .pipline_stop(pipline_stop),
+        .pipline_stop_jump(pipline_stop_jump),
         .din(NPC_npc),
         .pc(PC_pc),
         .pc4(PC_pc4)
@@ -230,6 +242,7 @@ module myCPU (
 
     //**EX_MEM
     wire[4:0] exmem_wR_o;
+    wire[31:0] exmem_pc_o;
     wire[31:0] exmem_pc4_o;
     wire[31:0] exmem_alu_c_o;
     wire[31:0] exmem_imm_o;
@@ -237,19 +250,23 @@ module myCPU (
     wire exmem_rf_we_o;
     wire[2:0] exmen_rf_wsel_o;
     wire[31:0] exmem_rD2_o;
+    wire[31:0] inst_exmem;
     EX_MEM u_EX_MEM(
         .clk(cpu_clk),
         .rst(cpu_rst),
         .inst_idex2exmem(inst_idex2exmem),
+        .inst_exmem(inst_exmem),
         //wb to rf
         .wR_i(idex_wR_o),
         .pc4_i(idex_pc4_o),
+        .pc4_o(exmem_pc4_o),
         .alu_c_i(ALU_C),
         .imm_i(idex_imm_o),
         .wR_o(exmem_wR_o),
-        .pc4_o(exmem_pc4_o),
         .alu_c_o(exmem_alu_c_o),
         .imm_o(exmem_imm_o),
+        .pc_i(idex_pc_o),
+        .pc_o(exmem_pc_o),
         //control signal
         .ram_we_i(idex_ram_we_o),
         .rf_we_i(idex_rf_we_o),
@@ -262,53 +279,48 @@ module myCPU (
         .rD2_o(exmem_rD2_o)
     );
 
-
-    //**MEMWB  !!!可以在这个模块这里就完成多路选择器
-    // wire memwb_rf_we_o;
-    // //连接到rf
-    // wire[2:0] memwb_rf_wsel_o;
-    // wire[4:0] memwb_wR_o;
-    // wire[31:0] memwb_pc4_o;
-    // wire[31:0] memwb_alu_c_o;
-    // wire[31:0] memwb_imm_o;
-    // wire[31:0] memwb_rdo_o;
-    // MEM_WB U_MEM_WB(
-    //     .clk(cpu_clk),
-    //     .rst(cpu_rst),
-    //     //control signal
-    //     .rf_we_i(exmem_rf_we_o),
-    //     .rf_wsel_i(exmen_rf_wsel_o),
-    //     .rf_we_o(memwb_rf_we_o),
-    //     .rf_wsel_o(memwb_rf_wsel_o),
-    //     //about rf write back
-    //     .wR_i(exmem_wR_o),
-    //     .pc4_i(exmem_pc4_o),
-    //     .alu_c_i(exmem_alu_c_o),
-    //     .imm_i(exmem_imm_o),
-    //     .dram_rdo_i(Bus_rdata[31:0]),//通过总线从dram外设等读到的数据
-    //     .wR_o(memwb_wR_o),
-    //     .pc4_o(memwb_pc4_o),
-    //     .alu_c_o(memwb_alu_c_o),
-    //     .imm_o(memwb_imm_o),
-    //     .rdo_o(memwb_rdo_o)
-    // );
-
-
-    reg debug_wb_have_inst_reg;
+    wire debug_have_inst = (inst_exmem[6:0] != 7'b000_0000);
+    reg d1;
+    reg first;
     always @(posedge cpu_clk or posedge cpu_rst) begin
-        if(cpu_rst)begin
-            debug_wb_have_inst_reg <= 1'b1;
+        if(cpu_rst) begin 
+            d1 <= 1'b0;
+            first <= 1'b0;
+        end
+        else if(d1==1'b1) begin
+            d1 <= 1'b0;
+        end
+        else if(debug_have_inst && first==1'b0)  begin
+            d1 <= 1'b1;
+            first <= 1'b1;
         end
         else begin
-            debug_wb_have_inst_reg <= 1'b1;
+            d1 <= d1;
+            first <= first;
         end
     end
+
+    reg d2;
+    always @(posedge cpu_clk or posedge cpu_rst) begin
+        if(cpu_rst) begin
+            d2 <= 1'b0;
+        end
+        else begin
+            if(exmem_pc_o != idex_pc_o)begin
+                d2 <= 1'b1;
+            end
+            else begin
+                d2 <= 1'b0;
+            end
+        end
+    end
+
 `ifdef RUN_TRACE
     // Debug Interface
-    assign debug_wb_have_inst = debug_wb_have_inst_reg;
-    assign debug_wb_pc        = PC_pc;
-    assign debug_wb_ena       = Con_rf_we;
-    assign debug_wb_reg       = inst[11:7];
+    assign debug_wb_have_inst = d1 ||  d2;   //debug_wb_have_inst_reg;
+    assign debug_wb_pc        = exmem_pc_o;
+    assign debug_wb_ena       = exmem_rf_we_o;
+    assign debug_wb_reg       = exmem_wR_o;
     assign debug_wb_value     = debug_wb_value_rf;
 `endif
 

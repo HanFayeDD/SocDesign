@@ -12,10 +12,12 @@ module EX_MEM(
     input wire[31:0] pc4_i,
     input wire[31:0] alu_c_i,
     input wire[31:0] imm_i,
+    input wire[31:0] pc_i,
     output reg[4:0] wR_o,
     output reg[31:0] pc4_o,
     output reg[31:0] alu_c_o,
     output reg[31:0] imm_o,
+    output reg[31:0] pc_o,
     //control signal
     input wire ram_we_i,
     input wire rf_we_i,
@@ -35,6 +37,11 @@ module EX_MEM(
     always@(posedge clk or posedge rst)begin
         if(rst)   wR_o <= 5'b00000;
         else      wR_o <= wR_i;
+    end
+
+    always@(posedge clk or posedge rst)begin
+        if(rst)   pc_o <= 32'h0000_0000;
+        else      pc_o <= pc_i;
     end
 
     always@(posedge clk or posedge rst)begin

@@ -63,9 +63,9 @@ module hazard_data(
     //     endcase
     // end
 
-    wire rawa = (((ifid_rd_o == inst_rs1) && inst_rs1_read) || ((ifid_rd_o == inst_rs2) && inst_rs2_read))  && id_rf_we;  //read信号不能乱加
-    wire rawb = (((idex_rd_o == inst_rs1) && inst_rs1_read) || ((idex_rd_o == inst_rs2) && inst_rs2_read))  && ex_rf_we;
-    wire rawc = (((exmem_rd_o == inst_rs1) && inst_rs1_read) || ((exmem_rd_o == inst_rs2) && inst_rs2_read)) && mem_rf_we;
+    wire rawa = (((ifid_rd_o == inst_rs1) && inst_rs1_read && inst_rs1!=5'b00000) || ((ifid_rd_o == inst_rs2) && inst_rs2_read && inst_rs2!=5'b00000))  && id_rf_we;  //read信号不能乱加
+    wire rawb = (((idex_rd_o == inst_rs1) && inst_rs1_read && inst_rs1!=5'b00000) || ((idex_rd_o == inst_rs2) && inst_rs2_read && inst_rs2!=5'b00000))  && ex_rf_we;
+    wire rawc = (((exmem_rd_o == inst_rs1) && inst_rs1_read  && inst_rs1!=5'b00000) || ((exmem_rd_o == inst_rs2) && inst_rs2_read && inst_rs2!=5'b00000)) && mem_rf_we;
     //RAW_A  前面的指令占据的流水线寄存继续（靠后阶段的寄存器继续跑），
     //后面的指令占据的流水线寄存器暂停（前面阶段的寄存器暂停），
     //!!不能用时序逻辑，得在时钟上升沿读之前就判断
@@ -76,70 +76,35 @@ module hazard_data(
         else          pipline_stop_info = `PIP_0STOP;
     end
 
-    //周期控制
-    // wire raw_abc = rawa | rawb | rawc;
-    // reg d1;
-    // reg d2;
-    // reg d3;
-    // always@(posedge clk or posedge rst)begin
-    //     if(rst) begin
-    //         d1 <= 1'b0;
-    //         d2 <= 1'b0;
-    //         d3 <= 1'b0;
-    //     end
-    //     else begin
-    //         d1 <= raw_abc;
-    //         d2 <= d1;
-    //         d3 <= d2;
-    //     end
-    // end
-
-    // wire stop_3 = (raw_abc==1'b1) & (d3==1'b0);
-    // wire stop_2 = (raw_abc==1'b1) & (d2==1'b0);
-    // wire stop_1 = (raw_abc==1'b1) & (d1==1'b0);
-
-    // reg[2:0] fix;
-    // always @(posedge clk or posedge rst) begin
-    //     if(rst)begin
-    //         fix <= 3'b0;
-    //     end
-    //     else if(fix==3'b0)begin
-    //         if(rawa) fix <= 3'b001;
-    //         else if(rawb) fix <= 3'b010;
-    //         else if(rawa) fix <= 3'b100;
-    //         else fix <= 3'b000;
-    //     end
-    //     else if(!pipline_stop) begin
-    //         fix <= 1'b0;
-    //     end
-    //     else fix <= fix;
-    // end
-
-    // always @(*) begin
-    //     if(rawa)                     pipline_stop = stop_3;           
-    //     else if(rawb)                pipline_stop = stop_2;
-    //     else if(rawc)                pipline_stop = stop_1;
-    //     else                         pipline_stop = 1'b0;
-    // end
-
     wire[2:0] raw_abc_wire = {rawa, rawb, rawc};
     reg[2:0] raw_abc_reg;
     reg saved;
     always@(negedge clk or posedge rst) begin
         if(rst) begin
-            saved <= 1'b0;
             raw_abc_reg <= 3'b000;
         end
-        else if(raw_abc_wire != 3'b000 && saved ==1'b0)begin
-            saved = 1'b1;
+        else if(raw_abc_wire != 3'b000 && saved==1'b0)begin //save为0表示可以开始处理新的冒险
             raw_abc_reg <= raw_abc_wire;
         end
-        else if(raw_abc_wire == 3'b000 && saved == 1'b1)begin
+        else if(raw_abc_wire == 3'b000)begin
             raw_abc_reg <= raw_abc_wire;
-            saved <= 1'b0;
         end
         else begin
             raw_abc_reg <= raw_abc_reg;
+        end
+    end
+
+    always @(posedge clk or posedge rst) begin
+        if(rst) begin
+            saved <= 1'b0;
+        end
+        else if(pipline_stop) begin
+            saved <= 1'b1;
+        end
+        else if(!pipline_stop) begin
+            saved <= 1'b0;
+        end
+        else begin
             saved <= saved;
         end
     end
@@ -148,7 +113,11 @@ module hazard_data(
     always @(*) begin
         case (raw_abc_reg)
             3'b100: pipline_stop = s3_reg;
+            3'b110: pipline_stop = s3_reg;
+            3'b101: pipline_stop = s3_reg;
+            3'b111: pipline_stop = s3_reg;
             3'b010: pipline_stop = s2_reg;
+            3'b011: pipline_stop = s2_reg;
             3'b001: pipline_stop = s1_reg; 
             default: pipline_stop = 1'b0; 
         endcase
@@ -169,6 +138,11 @@ module hazard_data(
                 s3_reg <= 1'b1;
                 s3_flag <= 1'b1;
             end
+            else if(raw_abc_wire == 3'b000) begin
+                s3_cnt <= 2'b0;
+                s3_flag <= 1'b0;
+                s3_reg <= 1'b0;
+            end
             else if(s3_cnt!=2'b00) begin
                 s3_cnt <= s3_cnt - 1;
                 s3_reg <= 1'b1;
@@ -180,7 +154,6 @@ module hazard_data(
         end
     end
 
-
     reg s2_reg;
     reg[1:0] s2_cnt;
     reg s2_flag;
@@ -188,13 +161,18 @@ module hazard_data(
         if(rst) begin
             s2_reg <= 1'b0;
             s2_cnt <= 2'b0;
-            s2_flag <= 1'b1;
+            s2_flag <= 1'b0;
         end
         else begin
-            if(rawb && s2_flag==1'b0) begin
+            if(!rawa && rawb && s2_flag==1'b0) begin
                 s2_cnt <= 2'b10-1;
                 s2_reg <= 1'b1;
                 s2_flag <= 1'b1;
+            end
+            else if(raw_abc_wire == 3'b000) begin
+                s2_cnt <= 2'b0;
+                s2_flag <= 1'b0;
+                s2_reg <= 1'b0;
             end
             else if(s2_cnt!=2'b00) begin
                 s2_cnt <= s2_cnt - 1;
@@ -217,12 +195,17 @@ module hazard_data(
             s1_flag <= 1'b0;
         end
         else begin
-            if(rawc && s1_flag==1'b0) begin
+            if(!rawa && !rawb && rawc && s1_flag==1'b0) begin
                 s1_cnt <= 2'b00;
                 s1_reg <= 1'b1;
                 s1_flag <= 1'b1;
             end
-            else if(s2_cnt!=2'b00) begin
+            else if(raw_abc_wire == 3'b000) begin
+                s1_cnt <= 2'b0;
+                s1_flag <= 1'b0;
+                s1_reg <= 1'b0;
+            end
+            else if(s1_cnt!=2'b00) begin
                 s1_cnt <= s1_cnt - 1;
                 s1_reg <= 1'b1;
             end
