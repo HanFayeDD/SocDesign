@@ -88,6 +88,7 @@ module myCPU (
     PC u_PC(
         .clk_pc(cpu_clk),
         .rst_pc(cpu_rst),
+        .pipline_stop(pipline_stop),
         .din(NPC_npc),
         .pc(PC_pc),
         .pc4(PC_pc4)

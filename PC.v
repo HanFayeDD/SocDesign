@@ -5,6 +5,7 @@
 module PC(
     input wire clk_pc,
     input wire rst_pc,
+    input wire pipline_stop,
     input wire[31:0] din,
     output reg[31:0] pc,
     output reg[31:0] pc4
@@ -41,6 +42,9 @@ module PC(
             if(first==1'b0)begin
                 pc <= 32'b0000_0000;
                 first <= 1'b1;
+            end
+            else if(pipline_stop) begin
+                pc <= pc;
             end
             else begin
                 pc <= pc+4;

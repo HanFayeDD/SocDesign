@@ -18,16 +18,13 @@ module hazard_data(
     output reg[3:0] pipline_stop_info,//几种不同的暂停情况
     output reg pipline_stop
 );  
-
+    //????jal的默认寄存器x0不会发生数据冒险，可以优化，但似乎没影响
     wire inst_rs1_read; //是否要从rs1中读数据
     wire inst_rs2_read; //是否要从rs2中读数据
     wire[6:0] opcode = inst[6:0];
-    //TODO
-    assign inst_rs1_read = (opcode==7'b011_0011) || (opcode==7'b001_0011) || (opcode==7'b110_0011);
+    //TODO  完善其他指令
+    assign inst_rs1_read = (opcode==7'b011_0011) || (opcode==7'b001_0011) || (opcode==7'b110_0011) || (opcode==7'b000_0011) || (opcode==7'b110_0111);
     assign inst_rs2_read = (opcode==7'b011_0011) || (opcode==7'b110_0011);
-
-    
-
 
     // always@(*)begin
     //     case (inst[6:0])
@@ -40,10 +37,12 @@ module hazard_data(
     //             inst_rs2_read = 1'b0;
     //         end
     //         7'b000_0011: begin //lw指令
-    //             ;
+    //             inst_rs1_read = 1'b1;
+    //             inst_rs2_read = 1'b0;
     //         end
     //         7'b110_0111: begin //jalr指令
-    //             ;
+    //             inst_rs1_read = 1'b1;
+    //             inst_rs2_read = 1'b0;
     //         end
     //         7'b110_0011: begin //B型指令
     //             inst_rs1_read = 1'b1;
@@ -54,7 +53,8 @@ module hazard_data(
     //             inst_rs2_read = 1'b0;
     //         end
     //         7'b110_1111: begin //jal指令
-    //             ;
+    //             inst_rs1_read = 1'b0;
+    //             inst_rs2_read = 1'b0;
     //         end
     //         default: begin
     //             inst_rs1_read = 1'b0;
