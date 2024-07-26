@@ -76,6 +76,6 @@ module EX_MEM(
 
     always@(posedge clk or posedge rst)begin
         if(rst)   rD2_o <= 32'h0000_0000;
-        else      rD2_o <= 32'h0000_0000;
+        else      rD2_o <= rD2_i;
     end
 endmodule

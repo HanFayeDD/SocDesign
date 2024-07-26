@@ -23,8 +23,8 @@ module hazard_data(
     wire inst_rs2_read; //是否要从rs2中读数据
     wire[6:0] opcode = inst[6:0];
     //TODO  完善其他指令
-    assign inst_rs1_read = (opcode==7'b011_0011) || (opcode==7'b001_0011) || (opcode==7'b110_0011) || (opcode==7'b000_0011) || (opcode==7'b110_0111);
-    assign inst_rs2_read = (opcode==7'b011_0011) || (opcode==7'b110_0011);
+    assign inst_rs1_read = (opcode==7'b011_0011) || (opcode==7'b001_0011) || (opcode==7'b110_0011) || (opcode==7'b000_0011) || (opcode==7'b110_0111) || (opcode==7'b010_0011);
+    assign inst_rs2_read = (opcode==7'b011_0011) || (opcode==7'b110_0011) || (opcode==7'b010_0011);
 
     // always@(*)begin
     //     case (inst[6:0])
@@ -39,6 +39,10 @@ module hazard_data(
     //         7'b000_0011: begin //lw指令
     //             inst_rs1_read = 1'b1;
     //             inst_rs2_read = 1'b0;
+    //         end
+    //         7'b010_0011: begin
+    //             inst_rs1_read = 1'b1;
+    //             inst_rs1_read = 1'b1;
     //         end
     //         7'b110_0111: begin //jalr指令
     //             inst_rs1_read = 1'b1;
@@ -133,7 +137,7 @@ module hazard_data(
             s3_flag <= 1'b0;
         end
         else begin
-            if(rawa && s3_flag==1'b0) begin
+            if(rawa==1'b1 && s3_flag==1'b0) begin //a, b, c, d考虑011
                 s3_cnt <= 2'b11-1;
                 s3_reg <= 1'b1;
                 s3_flag <= 1'b1;
@@ -164,7 +168,7 @@ module hazard_data(
             s2_flag <= 1'b0;
         end
         else begin
-            if(!rawa && rawb && s2_flag==1'b0) begin
+            if(rawa==1'b0 && rawb==1'b1 && rawb && s2_flag==1'b0) begin
                 s2_cnt <= 2'b10-1;
                 s2_reg <= 1'b1;
                 s2_flag <= 1'b1;
@@ -195,7 +199,7 @@ module hazard_data(
             s1_flag <= 1'b0;
         end
         else begin
-            if(!rawa && !rawb && rawc && s1_flag==1'b0) begin
+            if(rawa == 1'b0 &&  rawb==1'b0 && rawc==1'b1 && s1_flag==1'b0) begin
                 s1_cnt <= 2'b00;
                 s1_reg <= 1'b1;
                 s1_flag <= 1'b1;
